@@ -11,6 +11,24 @@ import json
 import sys
 import argparse
 import configparser
+import shutil
+import os
+import requests
+
+INI = "health.ini"
+TEMPLATE_INI = "health.ini.template"
+SPREADSHEET_MAP = "spreadsheet_map.json"
+SPREADSHEET_MAP_TEMPLATE = "spreadsheet_map.json.template"
+
+
+class GoogleFitClient:
+    def __init__(self, api_key):
+        self.api_key = api_key
+
+    def test(self):
+        r = requests.get("https://www.googleapis.com/fitness/v1/users/me/dataSources", headers={'Authorization': self.api_key})
+        return print(r.content)
+
 
 
 def updateMFPData(login, day, date, map, worksheet, config):
@@ -20,20 +38,24 @@ def updateMFPData(login, day, date, map, worksheet, config):
         date.month,
         date.day,
     )
-    # print(diary)
     for entry in diary:
-        # print(entry)
-        coord = map[day][0]["mfp"][entry]
+        try:
+            coord = map[day][0]["mfp"][entry]
+        # For elements that you don't want to track
+        except KeyError as e:
+            continue
+
         if entry == "water":
             diary[entry] = round(float(diary[entry]) / 1000, 2)
+
         worksheet.update(coord, diary[entry])
+        sleep(0.75)  # Limit write-speed to google sheets since there's an API rate limit
 
 
 def updateWhoopData(login, day, date, map, worksheet ):
     data = whoophelper.getWhoopData( login, date, date)
-    # print(data)
+
     for entry in data:
-        # print(entry)
         coord = map[day][0]["whoop"][entry]
         worksheet.update(coord, data[entry])
 
@@ -41,8 +63,7 @@ def updateWhoopData(login, day, date, map, worksheet ):
 def checkIfComplete(worksheet, map):
     if worksheet.acell(map["complete"]).value == "Y":
         return True
-    else:
-        return False
+    return False
 
 
 def getMap(path):
@@ -62,26 +83,34 @@ def openTab(sheet, tab_name):
 
 
 def getDateRange(start, end):
-    # end = datetime.strptime(end, "%Y-%m-%d")
-    # start = datetime.strptime(start, "%Y-%m-%d")
     delta = end - start
     dates = []
+
     for i in range(delta.days + 1):
         day = start + timedelta(days=i)
         dates.append(day)
+
     return dates
 
 
 def main(args):
-    ini = "health.ini"
     config = configparser.ConfigParser()
-    config.read(ini)
+    config.read(INI)
     tab_name = args.sheet
 
     map = getMap(config["gsheet"]["json"])
     gc = authToSheets(config["gsheet"]["creds"])
     gsheet = openSheet(gc, config["gsheet"]["url"])
     worksheet = openTab(gsheet, tab_name)
+
+    # TODO testing
+    gc_creds = False
+    with open(config["gsheet"]["creds"], 'r') as f:
+        gc_creds = json.load(gc_creds)
+    google_client = GoogleFitClient(api_key=gc_creds)
+    google_client.test()
+
+    sys.exit(1)
 
     if checkIfComplete(worksheet, map):
         print(
@@ -95,18 +124,34 @@ def main(args):
 
     day = args.sday
     login = mfphelper.login(config["mfp"]["username"], config["mfp"]["password"])
-    for date in dates:
-        updateMFPData(login, str(day), date, map, worksheet, config)
+
+    for d in dates:
+        updateMFPData(login, str(day), d, map, worksheet, config)
         day += 1
 
     day = args.sday
-    login = whoophelper.login(ini)
-    for date in dates:
-        updateWhoopData(login, str(day), str(date), map, worksheet)
+    login = whoophelper.login(INI)
+
+    for d in dates:
+        updateWhoopData(login, str(day), str(d), map, worksheet)
         day += 1
-
-
 if __name__ == "__main__":
+
+    # Create files from template if they don't exist yet
+    created_initial_files = False
+    if not os.path.exists(INI):
+        shutil.copyfile(TEMPLATE_INI, INI)
+        print("Edit health.ini to add your creds for services!")
+        created_initial_files = True
+
+    if not os.path.exists(SPREADSHEET_MAP):
+        shutil.copyfile(SPREADSHEET_MAP_TEMPLATE, SPREADSHEET_MAP)
+        print("Edit spreadsheet_map.json to map the cells to the correct values you'll be importing!")
+        created_initial_files = True
+
+    if created_initial_files:
+        sys.exit(1)
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-sheet",

@@ -16,6 +16,8 @@ def getMFPDiary(client, year, month, day):
         water = 0
     else:
         water = day_data.water
+
+    print(day_data.totals)
     if "calories" not in day_data.totals:
         day_data.totals["calories"] = 0
     if "carbohydrates" not in day_data.totals:
@@ -42,11 +44,3 @@ def getMFPDiary(client, year, month, day):
         "fiber": day_data.totals["fiber"],
         "weight": weight,
     }
-
-
-# client = login("blueostrich18@gmail.com")
-# data = getMFPDiary(client, 2021, 12, 27)
-# print(data)
-
-# weight = client.get_measurements("Weight")
-# print(weight)

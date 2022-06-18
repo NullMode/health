@@ -1,4 +1,8 @@
 venv/
 .idea/
-health.ini
 __pycache__/
+
+*.swp
+
+spreadsheet_map.json
+health.ini
