@@ -103,15 +103,6 @@ def main(args):
     gsheet = openSheet(gc, config["gsheet"]["url"])
     worksheet = openTab(gsheet, tab_name)
 
-    # TODO testing
-    gc_creds = False
-    with open(config["gsheet"]["creds"], 'r') as f:
-        gc_creds = json.load(gc_creds)
-    google_client = GoogleFitClient(api_key=gc_creds)
-    google_client.test()
-
-    sys.exit(1)
-
     if checkIfComplete(worksheet, map):
         print(
             "!!!!This tab/worksheet is marked as complete!!!! Exiting to protect the data."
