@@ -1,11 +1,10 @@
 # https://github.com/coddingtonbear/python-myfitnesspal/tree/02631d3acb8fde848fdf645a8a2bbdbf73c77f92
 import myfitnesspal
 import datetime
-import collections
 
 
-def login(user, password):
-    return myfitnesspal.Client(user, password)
+def login(cookie_jar):
+    return myfitnesspal.Client(cookie_jar)
 
 
 def getMFPDiary(client, year, month, day):

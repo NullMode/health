@@ -1,9 +1,10 @@
 # https://pyshark.com/google-sheets-api-using-python/#creating-google-api-credentials
 # https://docs.gspread.org/en/latest/user-guide.html#getting-a-cell-value
 
-from oauth2client.service_account import ServiceAccountCredentials
-from datetime import datetime, date, timedelta
+from http.cookiejar import CookieJar
+from datetime import date, timedelta
 from time import sleep
+import browser_cookie3
 import gspread
 import mfphelper
 import whoophelper
@@ -21,6 +22,7 @@ SPREADSHEET_MAP = "spreadsheet_map.json"
 SPREADSHEET_MAP_TEMPLATE = "spreadsheet_map.json.template"
 
 
+# Work in progress
 class GoogleFitClient:
     def __init__(self, api_key):
         self.api_key = api_key
@@ -28,7 +30,6 @@ class GoogleFitClient:
     def test(self):
         r = requests.get("https://www.googleapis.com/fitness/v1/users/me/dataSources", headers={'Authorization': self.api_key})
         return print(r.content)
-
 
 
 def updateMFPData(login, day, date, map, worksheet, config):
@@ -93,6 +94,18 @@ def getDateRange(start, end):
     return dates
 
 
+def getCookies(browser):
+    domain = "myfitnesspal.com"
+    return {
+        "edge": browser_cookie3.edge(domain_name=domain),
+        "safari": browser_cookie3.safari(domain_name=domain),
+        "chrome": browser_cookie3.chrome(domain_name=domain),
+        "chromium": browser_cookie3.chromium(domain_name=domain),
+        "opera": browser_cookie3.opera(domain_name=domain),
+        "firefox": browser_cookie3.firefox(domain_name=domain),
+    }[browser]
+
+
 def main(args):
     config = configparser.ConfigParser()
     config.read(INI)
@@ -114,7 +127,7 @@ def main(args):
     dates = getDateRange(start, end)
 
     day = args.sday
-    login = mfphelper.login(config["mfp"]["username"], config["mfp"]["password"])
+    login = mfphelper.login(getCookies(args.browser))
 
     for d in dates:
         updateMFPData(login, str(day), d, map, worksheet, config)
@@ -126,6 +139,8 @@ def main(args):
     for d in dates:
         updateWhoopData(login, str(day), str(d), map, worksheet)
         day += 1
+
+
 if __name__ == "__main__":
 
     # Create files from template if they don't exist yet
@@ -144,6 +159,14 @@ if __name__ == "__main__":
         sys.exit(1)
 
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-browser",
+        type=str,
+        required=False,
+        help="Browser to try and load myfitnesspal cookies from",
+        choices=["chrome", "opera", "chromium", "edge", "firefox", "safari"],
+        default="chrome"
+    )
     parser.add_argument(
         "-sheet",
         type=str,
@@ -172,7 +195,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main(args)
 
-
-# setup variables
-# package
-# post to github
